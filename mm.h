@@ -11,6 +11,7 @@
 #include <stdio.h>
 
 
+
 /**
  * @name    simple_malloc
  * @brief   Allocate at least size contiguous bytes of memory and return a pointer to the first byte.

@@ -13,7 +13,7 @@ typedef struct {
 void init_collection(Collection *collection) {
     collection->size = 0;
     collection->capacity = 10;  // Starting with a capacity of 10
-    collection->data = (int*)malloc(collection->capacity * sizeof(int));
+    collection->data = (int*)simple_malloc(collection->capacity * sizeof(int));
 }
 
 
@@ -23,7 +23,7 @@ void add_to_collection(Collection *collection, int value) {
     if (collection->size >= collection->capacity) {
         // Allocate a new, larger array
         int new_capacity = collection->capacity * 2;
-        int *new_data = (int*)malloc(new_capacity * sizeof(int));
+        int *new_data = (int*)simple_malloc(new_capacity * sizeof(int));
 
         // Copy the old data to the new array
         for (int i = 0; i < collection->size; i++) {
@@ -31,7 +31,7 @@ void add_to_collection(Collection *collection, int value) {
         }
 
         // Free the old data
-        free(collection->data);
+        simple_free(collection->data);
 
         // Update collection to use the new array
         collection->data = new_data;
@@ -65,8 +65,9 @@ void print_collection(Collection *collection) {
 }
 
 // Free the dynamically allocated memory for the collection
-void free_collection(Collection *collection) {
-    free(collection->data);  // Free the dynamically allocated memory
+void 
+simple_free_collection(Collection *collection) {
+    simple_free(collection->data);  // Free the dynamically allocated memory
 }
 
 /**
@@ -101,7 +102,7 @@ int main() {
     print_collection(&collection);
 
     // Free the memory allocated for the collection
-    free_collection(&collection);
+    simple_free_collection(&collection);
 
     return 0;
 }
