@@ -21,6 +21,7 @@ int main(int argc, char ** argv) {
     return 1;
   }
 
+
   void * a = simple_malloc(0x200);
 
   void * b = simple_malloc(0x100);

@@ -280,6 +280,44 @@ END_TEST
  * { You may provide more unit tests here, but remember to add them to simple_malloc_suite }
  */
 
+
+START_TEST (test_non_first_fit)
+{
+  // Step 1: Allocate three blocks
+  void *blockA = MALLOC(100);  // Block A (100 bytes)
+  void *blockB = MALLOC(200);  // Block B (200 bytes)
+  void *blockC = MALLOC(150);  // Block C (150 bytes)
+  
+  // Ensure allocations were successful
+  ck_assert(blockA != NULL);
+  ck_assert(blockB != NULL);
+  ck_assert(blockC != NULL);
+
+  // Step 2: Free block A
+  FREE(blockA);
+
+  // Step 3: Allocate a new block D of size less than A (e.g., 90 bytes)
+  void *blockD = MALLOC(90);  // Block D (90 bytes)
+
+  // Ensure allocation of block D was successful
+  ck_assert(blockD != NULL);
+
+  // Step 4: Check whether blockD is allocated at the same address as blockA
+  if (blockD == blockA) {
+    // If blockD is in the same space as blockA, then the system uses first-fit
+    printf("Test Failed: Memory management uses first-fit strategy\n");
+    ck_abort_msg("Memory management uses first-fit strategy");
+  } else {
+    // If blockD is NOT in the same space as blockA, then it's not using first-fit
+    printf("Test Passed: Memory management does not use first-fit strategy\n");
+  }
+
+  // Free all blocks
+  FREE(blockB);
+  FREE(blockC);
+  FREE(blockD);
+}
+END_TEST
 /**
  * @name   Example unit test suite.
  * @brief  Add your new unit tests to this suite.
@@ -290,9 +328,14 @@ Suite* simple_malloc_suite()
   Suite *s = suite_create("simple_malloc");
   TCase *tc_core = tcase_create("Core tests");
   tcase_set_timeout(tc_core, 120);
-  tcase_add_test (tc_core, test_simple_allocation);
-  tcase_add_test (tc_core, test_simple_unique_addresses);
-  tcase_add_test (tc_core, test_memory_exerciser);
+  
+  // new test("first_fit")
+  tcase_add_test(tc_core, test_non_first_fit);
+
+  // Existing tests
+  tcase_add_test(tc_core, test_simple_allocation);
+  tcase_add_test(tc_core, test_simple_unique_addresses);
+  tcase_add_test(tc_core, test_memory_exerciser);
 
   suite_add_tcase(s, tc_core);
   return s;
