@@ -53,22 +53,28 @@ BlockHeader *current = NULL;
 //   } 
 // }
 
-
 void simple_init() {
     uintptr_t aligned_memory_start = (memory_start + (sizeof(void*) - 1)) & ~(sizeof(void*) - 1);
     uintptr_t aligned_memory_end = memory_end & ~(sizeof(void*) - 1);
+    printf("Init: Aligned memory range: %p - %p\n", (void*)aligned_memory_start, (void*)aligned_memory_end);
+
     if (first == NULL) {
         if (aligned_memory_start + 2 * sizeof(BlockHeader) + MIN_SIZE <= aligned_memory_end) {
             first = (BlockHeader *)aligned_memory_start;
             SET_FREE(first, 1);
             BlockHeader *last = (BlockHeader *)(aligned_memory_end - sizeof(BlockHeader));
-            last->next = NULL;
-            SET_FREE(last, 0);
+            last->next = first;  // Make it circular
+            SET_FREE(last, 1);
             SET_NEXT(first, last);
             current = first;
+
+            printf("Init: First block at %p, Last block at %p\n", first, last);
+        } else {
+            printf("Error: Not enough memory to initialize\n");
         }
     }
 }
+
 
 
 /**
@@ -118,34 +124,103 @@ void simple_init() {
 //  /* None found */
 //   return NULL;
 // }
+//*************** */
+// void *simple_malloc(size_t size) {
+//     if (first == NULL) {
+//         simple_init();
+//         if (first == NULL) return NULL;
+//     }
+//     size_t aligned_size = (size + (sizeof(void*) - 1)) & ~(sizeof(void*) - 1);
+//     BlockHeader *search_start = current;
+//     do {
+//         if (GET_FREE(current)) {
+//             if (SIZE(current) >= aligned_size) {
+//                 if (SIZE(current) - aligned_size < sizeof(BlockHeader) + MIN_SIZE) {
+//                     SET_FREE(current, 0);
+//                 } else {
+//                     uintptr_t new_block_address = (uintptr_t)current + aligned_size + sizeof(BlockHeader);
+//                     BlockHeader *new_block = (BlockHeader *)new_block_address;
+//                     SET_NEXT(new_block, GET_NEXT(current));
+//                     SET_FREE(new_block, 1);
+//                     SET_NEXT(current, new_block);
+//                     SET_FREE(current, 0);
+//                 }
+//                 return (void *)(current + 1);
+//             }
+//         }
+//         current = GET_NEXT(current);
+//     } while (current != search_start);
+//     return NULL;
+// }
+
 
 void *simple_malloc(size_t size) {
     if (first == NULL) {
         simple_init();
         if (first == NULL) return NULL;
     }
+
     size_t aligned_size = (size + (sizeof(void*) - 1)) & ~(sizeof(void*) - 1);
     BlockHeader *search_start = current;
+    BlockHeader *best_fit = NULL;
+    size_t smallest_fit_size = (size_t)-1;
+
+    printf("Malloc: Requesting %zu bytes (aligned to %zu bytes)\n", size, aligned_size);
+
+    // Search for the best-fit block
     do {
+        printf("Malloc: Inspecting block at %p, Free = %d, Size = %zu\n", current, GET_FREE(current), SIZE(current));
+
         if (GET_FREE(current)) {
-            if (SIZE(current) >= aligned_size) {
-                if (SIZE(current) - aligned_size < sizeof(BlockHeader) + MIN_SIZE) {
-                    SET_FREE(current, 0);
-                } else {
-                    uintptr_t new_block_address = (uintptr_t)current + aligned_size + sizeof(BlockHeader);
-                    BlockHeader *new_block = (BlockHeader *)new_block_address;
-                    SET_NEXT(new_block, GET_NEXT(current));
-                    SET_FREE(new_block, 1);
-                    SET_NEXT(current, new_block);
-                    SET_FREE(current, 0);
-                }
-                return (void *)(current + 1);
+            size_t current_block_size = SIZE(current);
+
+            // Look for the smallest free block that can fit the requested size
+            if (current_block_size >= aligned_size && current_block_size < smallest_fit_size) {
+                best_fit = current;
+                smallest_fit_size = current_block_size;
             }
         }
+
         current = GET_NEXT(current);
+        
+        // Check if the next block is NULL or corrupted
+        if (current == NULL || (uintptr_t)current >= memory_end || (uintptr_t)current < memory_start) {
+            printf("Error: next block is NULL or out of bounds at %p\n", current);
+            return NULL;  // Prevent segfault by returning if invalid pointer
+        }
+
     } while (current != search_start);
-    return NULL;
+
+    // If no suitable block was found, return NULL
+    if (best_fit == NULL) {
+        printf("Malloc: No suitable block found\n");
+        return NULL;
+    }
+
+    printf("Malloc: Using block at %p, Size = %zu\n", best_fit, SIZE(best_fit));
+
+    // Use the best-fit block
+    if (smallest_fit_size - aligned_size < sizeof(BlockHeader) + MIN_SIZE) {
+        SET_FREE(best_fit, 0);
+    } else {
+        uintptr_t new_block_address = (uintptr_t)best_fit + aligned_size + sizeof(BlockHeader);
+        if (new_block_address >= memory_end) {
+            printf("Error: new block address out of bounds\n");
+            return NULL;
+        }
+        BlockHeader *new_block = (BlockHeader *)new_block_address;
+        SET_NEXT(new_block, GET_NEXT(best_fit));
+        SET_FREE(new_block, 1);
+        SET_NEXT(best_fit, new_block);
+        SET_FREE(best_fit, 0);
+    }
+
+    return (void *)(best_fit + 1);
 }
+
+
+
+
 
 
 /**
@@ -169,18 +244,43 @@ void *simple_malloc(size_t size) {
 //   /* Possibly coalesce consecutive free blocks here */
 // }
 
+//**************** */
+// void simple_free(void *ptr) {
+//     if (ptr == NULL) return;
+//     BlockHeader *block = (BlockHeader *)((uintptr_t)ptr - sizeof(BlockHeader));
+//     if (GET_FREE(block)) return;
+//     SET_FREE(block, 1);
+//     BlockHeader *next_block = GET_NEXT(block);
+//     if (next_block != NULL && GET_FREE(next_block)) {
+//         SET_NEXT(block, GET_NEXT(next_block));
+//     }
+//     current = block;
+// }
+
 
 void simple_free(void *ptr) {
     if (ptr == NULL) return;
+
     BlockHeader *block = (BlockHeader *)((uintptr_t)ptr - sizeof(BlockHeader));
-    if (GET_FREE(block)) return;
+    if (block == NULL) {
+        printf("Error: trying to free a NULL block\n");
+        return;
+    }
+    
+    if (GET_FREE(block)) return;  // Block already free, do nothing
+
     SET_FREE(block, 1);
     BlockHeader *next_block = GET_NEXT(block);
     if (next_block != NULL && GET_FREE(next_block)) {
+        if ((uintptr_t)next_block >= memory_end || (uintptr_t)next_block < memory_start) {
+            printf("Error: next block out of bounds\n");
+            return;
+        }
         SET_NEXT(block, GET_NEXT(next_block));
     }
     current = block;
 }
+
 
 
 /* Include test routines */
