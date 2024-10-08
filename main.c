@@ -1,6 +1,7 @@
 /* You are not allowed to use <stdio.h> */
-#include <stdlib.h>  // For malloc, free, realloc
+#include <stdlib.h>
 #include "io.h"      // For read_char, write_char, write_string, write_int
+#include <string.h>
 
 typedef struct {
     int *data;     
@@ -15,14 +16,34 @@ void init_collection(Collection *collection) {
     collection->data = (int*)malloc(collection->capacity * sizeof(int));
 }
 
+
+
 // Add an element to the collection
 void add_to_collection(Collection *collection, int value) {
     if (collection->size >= collection->capacity) {
-        collection->capacity *= 2;  // Double the capacity when the array is full
-        collection->data = (int*)realloc(collection->data, collection->capacity * sizeof(int));
+        // Allocate a new, larger array
+        int new_capacity = collection->capacity * 2;
+        int *new_data = (int*)malloc(new_capacity * sizeof(int));
+
+        // Copy the old data to the new array
+        for (int i = 0; i < collection->size; i++) {
+            new_data[i] = collection->data[i];
+        }
+
+        // Free the old data
+        free(collection->data);
+
+        // Update collection to use the new array
+        collection->data = new_data;
+        collection->capacity = new_capacity;
     }
-    collection->data[collection->size++] = value;  // Add the value and increment size
+
+    // Add the new element
+    collection->data[collection->size++] = value;
 }
+
+
+
 
 // Remove the last element from the collection
 void remove_from_collection(Collection *collection) {

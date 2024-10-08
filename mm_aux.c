@@ -1,6 +1,6 @@
 
 /* Test routines to be included at the end of mm.c */
-
+#include "mm.c"
 
 /**
  * @name    simple_macro_test
