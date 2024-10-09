@@ -283,40 +283,52 @@ END_TEST
 
 START_TEST (test_non_first_fit)
 {
-  // Allocate three blocks
-  void *blockA = MALLOC(100);  
-  void *blockB = MALLOC(200);  
-  void *blockC = MALLOC(150);  
+  // Allocate four blocks of different sizes
+  void *blockA = MALLOC(100);  // Block A (100 bytes)
+  void *blockB = MALLOC(200);  // Block B (200 bytes)
+  void *blockC = MALLOC(150);  // Block C (150 bytes)
+  void *blockE = MALLOC(300);  // Block E (300 bytes)
   
   // Ensure allocations were successful
   ck_assert(blockA != NULL);
   ck_assert(blockB != NULL);
   ck_assert(blockC != NULL);
+  ck_assert(blockE != NULL);
 
-  FREE(blockA);
+  // Free two blocks (Block A and Block C)
+  FREE(blockA);  
+  FREE(blockC);  
 
-  // Allocate a new block D of size less than A
-  void *blockD = MALLOC(90); 
+  // Allocate a new block D of size smaller than C and A
+  void *blockD = MALLOC(90);
 
-  // Allocation of block D was successful?!
+  // Ensure block D was successfully allocated
   ck_assert(blockD != NULL);
 
-  // Check whether blockD is allocated at the same address as blockA
-  if (blockD == blockA) {
-    // If blockD is in the same space as blockA, then the system uses first-fit
-    printf("Test Failed: Memory management uses first-fit strategy\n");
-    ck_abort_msg("Memory management uses first-fit strategy");
-  } else {
-    // If blockD is NOT in the same space as blockA, then it's not using first-fit
-    printf("Test Passed: Memory management does not use first-fit strategy\n");
-  }
+if (blockD == blockA) {
+    // If blockD is in the same space as blockA (smaller block), then it's using best-fit
+    printf("Test Passed: Memory management uses best-fit strategy\n");
+    ck_abort_msg("Memory management do use best-fit strategy");
 
-  // Free all blocks
+} else if (blockD == blockC) {
+    // If blockD is in the same space as blockC (larger block), then the system does not use best-fit
+    printf("Test Failed: Memory management does not use best-fit strategy\n");
+    ck_abort_msg("Memory management does not use best-fit strategy");
+
+} else {
+    // If blockD is somewhere else, then something unexpected happened
+    printf("Test Failed: ERROR\n");
+    ck_abort_msg("Error!!!");
+}
+
+
+
   FREE(blockB);
-  FREE(blockC);
-  FREE(blockD);
+  FREE(blockD); 
+  FREE(blockE);
 }
 END_TEST
+
 /**
  * @name   Example unit test suite.
  * @brief  Add your new unit tests to this suite.
