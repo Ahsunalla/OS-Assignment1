@@ -283,26 +283,25 @@ END_TEST
 
 START_TEST (test_non_first_fit)
 {
-  // Step 1: Allocate three blocks
-  void *blockA = MALLOC(100);  // Block A (100 bytes)
-  void *blockB = MALLOC(200);  // Block B (200 bytes)
-  void *blockC = MALLOC(150);  // Block C (150 bytes)
+  // Allocate three blocks
+  void *blockA = MALLOC(100);  
+  void *blockB = MALLOC(200);  
+  void *blockC = MALLOC(150);  
   
   // Ensure allocations were successful
   ck_assert(blockA != NULL);
   ck_assert(blockB != NULL);
   ck_assert(blockC != NULL);
 
-  // Step 2: Free block A
   FREE(blockA);
 
-  // Step 3: Allocate a new block D of size less than A (e.g., 90 bytes)
-  void *blockD = MALLOC(90);  // Block D (90 bytes)
+  // Allocate a new block D of size less than A
+  void *blockD = MALLOC(90); 
 
-  // Ensure allocation of block D was successful
+  // Allocation of block D was successful?!
   ck_assert(blockD != NULL);
 
-  // Step 4: Check whether blockD is allocated at the same address as blockA
+  // Check whether blockD is allocated at the same address as blockA
   if (blockD == blockA) {
     // If blockD is in the same space as blockA, then the system uses first-fit
     printf("Test Failed: Memory management uses first-fit strategy\n");
