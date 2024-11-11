@@ -217,42 +217,50 @@ START_TEST (test_memory_exerciser)
 END_TEST
 
 START_TEST (test_non_first_fit)
-{
-  // Allocate blocks of different sizes
-  void *blockA = MALLOC(200);  // Block A (200 bytes)
-  void *blockB = MALLOC(100);  // Block B (100 bytes)
-  void *blockC = MALLOC(300);  // Block C (300 bytes)
-  void *blockE = MALLOC(400);  // Block E (400 bytes)
-  
-  // Ensure allocations were successful
+{  
+  // First allocation - 400 bytes
+  void *blockA = MALLOC(400);
   ck_assert(blockA != NULL);
+  
+  // Second allocation - 100 bytes
+  void *blockB = MALLOC(100);
   ck_assert(blockB != NULL);
+  
+  // Third allocation - 200 bytes
+  void *blockC = MALLOC(200);
   ck_assert(blockC != NULL);
-  ck_assert(blockE != NULL);
 
-  // Free blocks A and C to create holes
-  FREE(blockA);  // Creates a 200-byte hole
-  FREE(blockC);  // Creates a 300-byte hole
-
-  // Allocate a block D of size 180 bytes
-  // First-fit would use blockA's space (200 bytes)
-  // Best-fit would also use blockA's space (200 bytes is closer to 180 than 300)
-  // So we need a different size to differentiate
-  void *blockD = MALLOC(250);  // This size will differentiate between strategies
-
-  // Ensure block D was successfully allocated
+  // Fourth allocation - 300 bytes (to ensure we have enough space)
+  void *blockD = MALLOC(300);
   ck_assert(blockD != NULL);
 
-  if (blockD == blockA) {
-    // If blockD is in blockA's space (first available hole), it's using first-fit
-    ck_assert_msg(0, "Memory management appears to be using first-fit strategy");
-  }
-  // We don't abort if it's in blockC's space, as that's the expected best-fit behavior
+  // Free blocks in specific order to test the strategy
+  FREE(blockA);  // Creates 400-byte hole
+  FREE(blockC);  // Creates 200-byte hole
+  FREE(blockD);  // Creates 300-byte hole
 
-  // Clean up remaining blocks
+  // Now allocate a block of 180 bytes
+  // First-fit would use blockA (400 bytes) since it's first
+  // Best-fit would use blockC (200 bytes) since it's closest to 180
+  void *blockE = MALLOC(180);
+  ck_assert(blockE != NULL);
+
+  // Check if blockE is in the correct location
+  if (blockE == blockA) {
+    ck_assert_msg(0, "Memory management appears to be using first-fit strategy (blockE=%p placed in blockA=%p)", 
+                  blockE, blockA);
+  } else if (blockE == blockC) {
+    // This is what we want - using the 200-byte hole (better fit) instead of the 400-byte hole
+  } else if (blockE == blockD) {
+    ck_assert_msg(0, "Memory management placed block in 300-byte hole when a better 200-byte hole was available");
+  } else {
+    ck_assert_msg(0, "Memory allocation placed in unexpected location (blockE=%p, expected blockC=%p)", 
+                  blockE, blockC);
+  }
+
+  // Clean up
   FREE(blockB);
-  FREE(blockD);
-  FREE(blockE);
+  FREE(blockE); 
 }
 END_TEST
 
@@ -266,7 +274,7 @@ Suite* simple_malloc_suite()
   TCase *tc_core = tcase_create("Core tests");
   tcase_set_timeout(tc_core, 120);
   
-  // new test("first_fit")
+  // Strategy test
   tcase_add_test(tc_core, test_non_first_fit);
 
   // Existing tests
