@@ -216,8 +216,14 @@ START_TEST (test_memory_exerciser)
 }
 END_TEST
 
+/**
+ * @name   Non-first-fit strategy test
+ * @brief  Tests whether the memory manager uses next-fit allocation strategy.
+ */
 START_TEST (test_non_first_fit)
-{  
+{
+  // Create a scenario to distinguish next-fit from first-fit
+  
   // First allocation - 400 bytes
   void *blockA = MALLOC(400);
   ck_assert(blockA != NULL);
@@ -230,39 +236,35 @@ START_TEST (test_non_first_fit)
   void *blockC = MALLOC(200);
   ck_assert(blockC != NULL);
 
-  // Fourth allocation - 300 bytes (to ensure we have enough space)
-  void *blockD = MALLOC(300);
+  // Free blockA and blockC to create holes:
+  // - A hole of 400 bytes (from blockA)
+  // - A hole of 200 bytes (from blockC)
+  FREE(blockA);
+  FREE(blockC);
+
+  // Allocate a new block of 150 bytes
+  // First-fit would place it in blockA's space (first available hole).
+  // Next-fit would place it in blockC's space (starting from the `current` pointer after `blockB`)
+  void *blockD = MALLOC(150);
   ck_assert(blockD != NULL);
 
-  // Free blocks in specific order to test the strategy
-  FREE(blockA);  // Creates 400-byte hole
-  FREE(blockC);  // Creates 200-byte hole
-  FREE(blockD);  // Creates 300-byte hole
-
-  // Now allocate a block of 180 bytes
-  // First-fit would use blockA (400 bytes) since it's first
-  // Best-fit would use blockC (200 bytes) since it's closest to 180
-  void *blockE = MALLOC(180);
-  ck_assert(blockE != NULL);
-
-  // Check if blockE is in the correct location
-  if (blockE == blockA) {
-    ck_assert_msg(0, "Memory management appears to be using first-fit strategy (blockE=%p placed in blockA=%p)", 
-                  blockE, blockA);
-  } else if (blockE == blockC) {
-    // This is what we want - using the 200-byte hole (better fit) instead of the 400-byte hole
-  } else if (blockE == blockD) {
-    ck_assert_msg(0, "Memory management placed block in 300-byte hole when a better 200-byte hole was available");
+  // Check if blockD was placed in blockC’s space
+  if (blockD == blockA) {
+    // If blockD is in blockA's space, it's using first-fit, which fails the test
+    ck_assert_msg(0, "Memory management appears to be using first-fit strategy");
+  } else if (blockD == blockC) {
+    // Expected next-fit behavior: `blockD` should be placed in blockC's space
   } else {
-    ck_assert_msg(0, "Memory allocation placed in unexpected location (blockE=%p, expected blockC=%p)", 
-                  blockE, blockC);
+    // If it's somewhere else entirely, that's unexpected
+    ck_assert_msg(0, "Memory allocation placed in unexpected location");
   }
 
   // Clean up
   FREE(blockB);
-  FREE(blockE); 
+  FREE(blockD);
 }
 END_TEST
+
 
 /**
  * @name   Example unit test suite.

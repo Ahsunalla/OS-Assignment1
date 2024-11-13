@@ -160,68 +160,40 @@ void *simple_malloc(size_t size) {
         if (first == NULL) return NULL;
     }
 
+    // Align size to the nearest multiple of pointer size
     size_t aligned_size = (size + (sizeof(void*) - 1)) & ~(sizeof(void*) - 1);
-    BlockHeader *search_start = current;
-    BlockHeader *best_fit = NULL;
-    size_t smallest_fit_size = (size_t)-1;
+    BlockHeader *search_start = current; // Start from the last allocated block
 
-    printf("Malloc: Requesting %zu bytes (aligned to %zu bytes)\n", size, aligned_size);
-
-    // Search for the best-fit block
+    // Search for the next free block starting from the `current` pointer
     do {
-        printf("Malloc: Inspecting block at %p, Free = %d, Size = %zu\n", current, GET_FREE(current), SIZE(current));
+        if (GET_FREE(current) && SIZE(current) >= aligned_size) {
+            // Found a suitable block
+            size_t block_size = SIZE(current);
 
-        if (GET_FREE(current)) {
-            size_t current_block_size = SIZE(current);
-
-            // Look for the smallest free block that can fit the requested size
-            if (current_block_size >= aligned_size && current_block_size < smallest_fit_size) {
-                best_fit = current;
-                smallest_fit_size = current_block_size;
+            // Check if there's enough space to split the block
+            if (block_size - aligned_size < sizeof(BlockHeader) + MIN_SIZE) {
+                SET_FREE(current, 0); // Mark the whole block as used
+            } else {
+                // Split the block
+                uintptr_t new_block_address = (uintptr_t)current + aligned_size + sizeof(BlockHeader);
+                BlockHeader *new_block = (BlockHeader *)new_block_address;
+                SET_NEXT(new_block, GET_NEXT(current));
+                SET_FREE(new_block, 1);
+                SET_NEXT(current, new_block);
+                SET_FREE(current, 0);
             }
-        }
 
+            // Update `current` to the allocated block for next-fit behavior
+            void *allocated_memory = (void *)(current + 1);
+            current = GET_NEXT(current); // Move current to the next block
+            return allocated_memory;
+        }
         current = GET_NEXT(current);
-        
-        // Check if the next block is NULL or corrupted
-        if (current == NULL || (uintptr_t)current >= memory_end || (uintptr_t)current < memory_start) {
-            printf("Error: next block is NULL or out of bounds at %p\n", current);
-            return NULL;  // Prevent segfault by returning if invalid pointer
-        }
+    } while (current != search_start); // Loop back if no suitable block was found
 
-    } while (current != search_start);
-
-    // If no suitable block was found, return NULL
-    if (best_fit == NULL) {
-        printf("Malloc: No suitable block found\n");
-        return NULL;
-    }
-
-    printf("Malloc: Using block at %p, Size = %zu\n", best_fit, SIZE(best_fit));
-
-    // Use the best-fit block
-    if (smallest_fit_size - aligned_size < sizeof(BlockHeader) + MIN_SIZE) {
-        SET_FREE(best_fit, 0);
-    } else {
-        uintptr_t new_block_address = (uintptr_t)best_fit + aligned_size + sizeof(BlockHeader);
-        if (new_block_address >= memory_end) {
-            printf("Error: new block address out of bounds\n");
-            return NULL;
-        }
-        BlockHeader *new_block = (BlockHeader *)new_block_address;
-        SET_NEXT(new_block, GET_NEXT(best_fit));
-        SET_FREE(new_block, 1);
-        SET_NEXT(best_fit, new_block);
-        SET_FREE(best_fit, 0);
-    }
-
-    return (void *)(best_fit + 1);
+    // No suitable block found
+    return NULL;
 }
-
-
-
-
-
 
 /**
  * @name    simple_free
