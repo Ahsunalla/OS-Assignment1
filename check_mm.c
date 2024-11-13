@@ -221,9 +221,7 @@ END_TEST
  * @brief  Tests whether the memory manager uses next-fit allocation strategy.
  */
 START_TEST (test_non_first_fit)
-{
-  // Create a scenario to distinguish next-fit from first-fit
-  
+{  
   // First allocation - 400 bytes
   void *blockA = MALLOC(400);
   ck_assert(blockA != NULL);
