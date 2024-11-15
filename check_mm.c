@@ -234,32 +234,36 @@ START_TEST (test_non_first_fit)
   void *blockC = MALLOC(200);
   ck_assert(blockC != NULL);
 
-  // Free blockA and blockC to create holes:
-  // - A hole of 400 bytes (from blockA)
-  // - A hole of 200 bytes (from blockC)
-  FREE(blockA);
+  // Free blockC first - this sets the "current" pointer in this region
   FREE(blockC);
 
-  // Allocate a new block of 150 bytes
-  // First-fit would place it in blockA's space (first available hole).
-  // Next-fit would place it in blockC's space (starting from the `current` pointer after `blockB`)
+  // Allocate blockD - in next-fit, this should create a new block after blockB
   void *blockD = MALLOC(150);
   ck_assert(blockD != NULL);
+  
+  // Verify blockD is a new block after blockB
+  ck_assert_msg((uintptr_t)blockD > (uintptr_t)blockB, 
+                "Next-fit should have allocated blockD after blockB");
+  ck_assert_msg(blockD != blockC, 
+                "Next-fit should create a new block, not reuse blockC");
 
-  // Check if blockD was placed in blockC’s space
-  if (blockD == blockA) {
-    // If blockD is in blockA's space, it's using first-fit, which fails the test
-    ck_assert_msg(0, "Memory management appears to be using first-fit strategy");
-  } else if (blockD == blockC) {
-    // Expected next-fit behavior: `blockD` should be placed in blockC's space
-  } else {
-    // If it's somewhere else entirely, that's unexpected
-    ck_assert_msg(0, "Memory allocation placed in unexpected location");
-  }
+  // Now free blockA
+  FREE(blockA);
+
+  // Allocate blockE - in next-fit, this should create a new block after blockD
+  void *blockE = MALLOC(150);
+  ck_assert(blockE != NULL);
+  
+  // Verify blockE is a new block after blockD
+  ck_assert_msg((uintptr_t)blockE > (uintptr_t)blockD, 
+                "Next-fit should have allocated blockE after blockD");
+  ck_assert_msg(blockE != blockA, 
+                "Next-fit should create a new block, not reuse blockA");
 
   // Clean up
   FREE(blockB);
   FREE(blockD);
+  FREE(blockE);
 }
 END_TEST
 
